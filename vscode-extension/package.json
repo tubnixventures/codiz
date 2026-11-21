@@ -1,0 +1,96 @@
+{
+  "name": "codiz-vscode",
+  "displayName": "Codiz — Self-Hosted Coding Intelligence",
+  "description": "Connect VS Code to your own self-hosted Codiz Cloud Gateway & trained Qwen model without any subscription.",
+  "version": "1.0.0",
+  "publisher": "codiz-personal",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codiz.openChat",
+        "title": "Codiz: Open Coding Workbench Panel"
+      },
+      {
+        "command": "codiz.askSelection",
+        "title": "Codiz: Explain or Refactor Selection"
+      },
+      {
+        "command": "codiz.debugSelection",
+        "title": "Codiz: Debug Selection"
+      },
+      {
+        "command": "codiz.reviewSelection",
+        "title": "Codiz: Security & Code Review Selection"
+      },
+      {
+        "command": "codiz.setToken",
+        "title": "Codiz: Set Gateway Bearer Token"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "codiz.askSelection",
+          "when": "editorHasSelection",
+          "group": "codiz@1"
+        },
+        {
+          "command": "codiz.debugSelection",
+          "when": "editorHasSelection",
+          "group": "codiz@2"
+        },
+        {
+          "command": "codiz.reviewSelection",
+          "when": "editorHasSelection",
+          "group": "codiz@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codiz Self-Hosted Coding AI",
+      "properties": {
+        "codiz.gatewayUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "URL of your self-hosted or Cloud Run Codiz Gateway (no trailing slash)."
+        },
+        "codiz.model": {
+          "type": "string",
+          "default": "qwen3:4b-q4_K_M",
+          "description": "Self-hosted trained Qwen model identifier routed by Codiz."
+        },
+        "codiz.enableInlineCompletions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable lightweight inline code completion from your self-hosted Qwen model."
+        },
+        "codiz.useKnowledgeRag": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include Codiz Knowledge RAG documentation context in requests."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.7.2"
+  }
+}

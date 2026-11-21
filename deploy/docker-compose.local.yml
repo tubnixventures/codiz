@@ -1,0 +1,37 @@
+services:
+  # 1. Zero-cost local quantized inference runtime (Qwen3-4B Q4_K_M ~ 2.6 GB disk, ~3.4 GB RAM)
+  ollama:
+    image: ollama/ollama:0.5.7
+    container_name: codiz-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+
+  # 2. Codiz Hono API Gateway & Coding Workbench
+  codiz-web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: codiz-web
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - CODIZ_INFERENCE_MODE=local-ollama
+      - LOCAL_LLM_BASE_URL=http://ollama:11434/v1
+      - LOCAL_LLM_MODEL=qwen3:4b-q4_K_M
+      - MONTHLY_BUDGET_USD=20
+      - PREFERRED_CURRENCY=KES
+    volumes:
+      - codiz_data:/app/.codiz-data
+      - ../:/workspace:ro
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
+  codiz_data:

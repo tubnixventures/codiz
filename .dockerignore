@@ -1,0 +1,11 @@
+node_modules
+dist
+.codiz-data
+.env
+.env.*
+!.env.example
+.git
+__pycache__
+*.pyc
+ml_services/checkpoints
+ml_services/adapters

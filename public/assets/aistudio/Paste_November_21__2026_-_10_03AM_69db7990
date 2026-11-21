@@ -1,0 +1,1114 @@
+# PROJECT: BUILD A PROFESSIONAL PERSONAL AI CODING INTELLIGENCE PLATFORM
+
+## 1. YOUR ROLE
+
+Act as a principal AI infrastructure architect, senior machine-learning engineer, staff software engineer, cloud architect, DevOps engineer and autonomous coding-agent developer.
+
+Your task is to DESIGN AND IMPLEMENT a complete, production-oriented personal AI coding platform.
+
+This is not a chatbot prototype, a basic AI API wrapper, a generic RAG application or a simple VS Code extension.
+
+I want a sophisticated personal coding intelligence system that I own, operate, train, benchmark and continuously improve.
+
+I will be the only primary user.
+
+I will manually manage the GitHub repository and deploy the completed application to Google Cloud Run.
+
+Your responsibility is to generate the complete working source code, project structure, configurations, training pipelines, APIs, tests, documentation and deployment instructions.
+
+Do not stop at architecture diagrams or pseudocode.
+
+Implement the actual application.
+
+Do not leave core functionality as TODO comments, placeholders or imaginary integrations.
+
+Where an external service requires credentials, implement its complete integration using environment variables and explain how to configure it.
+
+---
+
+# 2. PRIMARY OBJECTIVE
+
+Build a personal AI coding intelligence platform with these capabilities:
+
+1. Understand large software projects.
+2. Understand complex multi-file architectures.
+3. Generate production-quality code.
+4. Debug and repair existing code.
+5. Understand cloud infrastructure and cloud APIs.
+6. Understand programming languages and their ecosystems.
+7. Research technical documentation.
+8. Search the web and retrieve relevant technical information.
+9. Scrape permitted public web content.
+10. Automatically generate high-quality training datasets.
+11. Automatically fine-tune its own foundation model.
+12. Automatically benchmark new model versions.
+13. Automatically improve through teacher-student training.
+14. Deploy approved model versions.
+15. Maintain previous working model versions for rollback.
+
+The platform must separate the coding agent from the underlying language model.
+
+The coding agent should be able to use different model versions without requiring changes to its core architecture.
+
+---
+
+# 3. MODEL ARCHITECTURE
+
+Build the system around an open-weight foundation model.
+
+Initial target:
+- Approximately 4 billion parameters.
+- Prefer a strong coding-capable open-weight model.
+- Initial candidate: Qwen3-4B.
+- Support changing the foundation model without rebuilding the platform.
+- Support LoRA fine-tuning.
+- Support BF16 and quantized inference where appropriate.
+- Support separate model adapters and model versions.
+
+Do not train a foundation model from scratch.
+
+Implement the capability to:
+- Download approved foundation models.
+- Store model artifacts in Google Cloud Storage.
+- Load model configurations dynamically.
+- Train LoRA adapters.
+- Save adapters separately from foundation weights.
+- Register model versions.
+- Load different adapters for inference.
+- Roll back to previous versions.
+
+Do not hardcode model identifiers throughout the application.
+
+Create a central model registry and configuration system.
+
+Design the system so that future 7B, 14B and larger models can be supported.
+
+---
+
+# 4. PROGRAMMING AND TECHNICAL SPECIALIZATION
+
+The model must be optimized to become exceptionally knowledgeable in the following areas.
+
+## A. Cloudflare ecosystem
+
+Deep specialization in:
+
+- Cloudflare Workers.
+- Hono.
+- D1.
+- R2.
+- KV.
+- Durable Objects.
+- Queues.
+- Workflows.
+- Analytics Engine.
+- Cloudflare Email Routing.
+- Cloudflare Email Workers.
+- Cloudflare DNS.
+- Cloudflare Domains.
+- Cloudflare Pages.
+- Cloudflare Workers AI.
+- Cloudflare API.
+- Cloudflare security.
+- Cloudflare networking.
+- Cloudflare deployments.
+- Wrangler.
+- Cloudflare bindings and environment configurations.
+- Cloudflare storage integrations.
+- Cloudflare observability.
+
+Understand the differences between Cloudflare's services and their practical production applications.
+
+## B. Google Cloud ecosystem
+
+Deep specialization in:
+
+- Google Cloud Run.
+- Cloud Run Jobs.
+- Cloud Storage.
+- Cloud Functions.
+- Compute Engine.
+- Cloud SQL.
+- Firestore.
+- BigQuery.
+- Cloud Build.
+- Artifact Registry.
+- IAM.
+- Service accounts.
+- Cloud Logging.
+- Cloud Monitoring.
+- Secret Manager.
+- Google APIs.
+- Google OAuth.
+- Google AI services.
+- Google Cloud networking.
+- Google Cloud deployments.
+- Google Cloud SDK.
+
+Understand Google Cloud architecture, billing, security, deployment and resource optimization.
+
+## C. Microsoft Azure ecosystem
+
+Understand:
+
+- Azure Functions.
+- Azure App Service.
+- Azure Container Apps.
+- Azure Blob Storage.
+- Azure Cosmos DB.
+- Azure SQL.
+- Azure Virtual Machines.
+- Azure Kubernetes Service.
+- Azure networking.
+- Azure DNS.
+- Azure API Management.
+- Azure AI services.
+- Microsoft Graph API.
+- Entra ID.
+- Azure DevOps.
+- Azure deployment and monitoring.
+
+## D. Meta ecosystem
+
+Deep understanding of:
+
+- Meta Graph API.
+- WhatsApp Cloud API.
+- WhatsApp Business Platform.
+- Meta webhooks.
+- Meta authentication.
+- Meta permissions.
+- Meta applications.
+- Facebook APIs.
+- Instagram APIs.
+- Facebook Login.
+- Instagram Graph API.
+- Meta Business integrations.
+- Webhook verification.
+- Message templates.
+- Media uploads.
+- Rate limits.
+- API versioning.
+- Error handling.
+
+## E. Programming languages
+
+Prioritize:
+
+- JavaScript.
+- TypeScript.
+- C++.
+- Dart.
+- Python.
+- HTML.
+- CSS.
+
+Understand their syntax, runtime behaviour, memory management where applicable, type systems, asynchronous execution, debugging, performance and best practices.
+
+## F. Frameworks and libraries
+
+Deep specialization in:
+
+- Hono.
+- React.
+- React Native.
+- Vue.
+- Nuxt.
+- Next.js.
+- Flutter.
+- NativeScript.
+- Tailwind CSS.
+- Node.js.
+- Express.
+- Fastify.
+- npm ecosystem.
+- Vite.
+- TypeScript tooling.
+
+Understand framework architecture, rendering, SSR, SSG, hydration, routing, state management, API integrations, performance and production deployments.
+
+## G. Infrastructure and development operations
+
+Understand:
+
+- Docker.
+- Docker Compose.
+- Git.
+- GitHub.
+- GitHub Actions.
+- CI/CD.
+- Linux.
+- Networking.
+- TCP/IP.
+- DNS.
+- HTTP.
+- HTTPS.
+- TLS.
+- Reverse proxies.
+- Load balancing.
+- Domain management.
+- DNS records.
+- SSL certificates.
+- Ports.
+- Firewalls.
+- Containers.
+- Serverless computing.
+- Package management.
+- npm packages.
+- Dependency management.
+- Version control.
+- Deployment automation.
+- Environment variables.
+- File handling.
+- Streams.
+- Uploads.
+- Downloads.
+- File systems.
+- Object storage.
+- Database design.
+- Caching.
+- Authentication.
+- Authorization.
+- API security.
+
+## H. Software engineering
+
+Develop strong capabilities in:
+
+- Clean architecture.
+- Modular architecture.
+- SOLID principles.
+- Separation of concerns.
+- Dependency injection.
+- Design patterns.
+- API design.
+- Database architecture.
+- Data modelling.
+- Testing.
+- Debugging.
+- Error handling.
+- Security engineering.
+- Performance optimization.
+- Scalability.
+- Code maintainability.
+- Refactoring.
+- Logging.
+- Observability.
+- Documentation.
+- Technical debt management.
+- Distributed systems.
+
+The system should prioritize practical production engineering over theoretical explanations.
+
+---
+
+# 5. AUTOMATED AI MODEL FACTORY
+
+This is one of the most important parts of the entire project.
+
+I do not want to manually manage training datasets, manually write training examples or manually execute training scripts.
+
+Build an AI-managed model factory that automates the model improvement lifecycle.
+
+It must contain the following independent subsystems.
+
+## A. AI Data Engineer
+
+Responsible for:
+
+- Collecting approved coding interactions.
+- Processing imported coding examples.
+- Generating synthetic coding examples.
+- Cleaning datasets.
+- Detecting duplicate examples.
+- Detecting malformed examples.
+- Removing secrets and sensitive information.
+- Validating training data formats.
+- Categorizing examples by technology.
+- Preparing training and validation datasets.
+- Maintaining dataset versions.
+
+Generate examples covering beginner, intermediate and advanced programming scenarios.
+
+Prioritize real-world debugging, API integrations, architecture, cloud infrastructure and production code.
+
+## B. AI Teacher
+
+Implement an extensible teacher-model integration.
+
+The initial teacher should support an external model API through a configurable provider interface.
+
+Support:
+- OpenAI-compatible APIs.
+- Configurable model identifiers.
+- Configurable API endpoints.
+- Secure API key storage.
+- Request limits.
+- Cost tracking.
+- Retry logic.
+- Response validation.
+
+Create a dedicated teacher provider interface so that different models can be used without changing the training pipeline.
+
+Support importing high-quality examples produced by Muse Code.
+
+IMPORTANT:
+
+Muse Code must not be assumed to provide a publicly available API. If direct API integration is unavailable, support manual or programmatic import of authorized teacher-generated outputs in JSONL format.
+
+The teacher must:
+- Review student-generated code.
+- Detect incorrect APIs.
+- Identify hallucinations.
+- Identify security vulnerabilities.
+- Correct broken implementations.
+- Generate improved solutions.
+- Explain errors.
+- Create high-quality training examples.
+
+Never trust the teacher automatically.
+
+## C. AI Evaluator
+
+Implement an independent evaluation system.
+
+Evaluate:
+- Correctness.
+- Architecture.
+- Security.
+- Type safety.
+- Performance.
+- Maintainability.
+- API correctness.
+- Test coverage.
+
+Integrate real automated checks, including:
+- TypeScript compilation.
+- ESLint.
+- Unit tests.
+- Integration tests.
+- Python testing.
+- Package compatibility checks.
+- Security scanning.
+
+Teacher approval alone must never be sufficient for production promotion.
+
+Require automated tests and benchmark thresholds.
+
+## D. AI Trainer
+
+Implement automated LoRA fine-tuning.
+
+Use:
+
+- Python.
+- PyTorch.
+- Hugging Face Transformers.
+- PEFT.
+- TRL.
+- Accelerate.
+- Safetensors.
+
+Support:
+- Dataset loading.
+- Dataset validation.
+- Training configuration.
+- Training execution.
+- Checkpoint saving.
+- Adapter export.
+- Training metrics.
+- Validation loss.
+- Training logs.
+- Model versioning.
+
+Use LoRA initially with configurable rank, alpha, dropout and target modules.
+
+Allow training jobs to run independently from the API service.
+
+Do not run GPU training inside the Hono API process.
+
+## E. Model Registry and Promotion
+
+Implement model version management.
+
+Each model version must record:
+
+- Foundation model.
+- Adapter version.
+- Dataset version.
+- Training configuration.
+- Training date.
+- Evaluation metrics.
+- Benchmark results.
+- Approval status.
+- Deployment status.
+
+Never replace a production model automatically if the new model performs worse.
+
+Keep previous production versions available.
+
+Implement automatic rollback when a promoted version fails health checks or deployment validation.
+
+---
+
+# 6. MUSE CODE TEACHER INTEGRATION
+
+I want to leverage Muse Code as an additional source of high-quality coding knowledge.
+
+Build an extensible teacher ingestion system.
+
+It should support:
+
+1. Importing teacher-generated coding examples.
+2. Importing corrected code.
+3. Importing debugging sessions.
+4. Importing architecture reviews.
+5. Importing technical explanations.
+6. Importing verified implementations.
+7. Converting imported information into structured training examples.
+
+Do not claim that the student has learned from Muse Code merely because it has access to its outputs.
+
+Only examples that pass the dataset quality pipeline should enter training.
+
+Preserve source attribution and licensing metadata.
+
+---
+
+# 7. KNOWLEDGE ENGINE AND RAG
+
+Fine-tuning alone is insufficient for keeping technical knowledge current.
+
+Build a professional documentation retrieval system.
+
+Its responsibilities include:
+
+- Documentation ingestion.
+- Web search.
+- Web scraping.
+- HTML extraction.
+- Markdown extraction.
+- PDF processing.
+- Code example extraction.
+- Chunking.
+- Embedding generation.
+- Vector search.
+- Hybrid search.
+- Metadata filtering.
+- Documentation version tracking.
+- Source citations.
+
+Prioritize official documentation.
+
+Create separate knowledge collections for:
+
+- Cloudflare.
+- Google Cloud.
+- Azure.
+- Meta.
+- Hono.
+- TypeScript.
+- JavaScript.
+- React.
+- React Native.
+- Vue.
+- Nuxt.
+- Next.js.
+- Flutter.
+- Dart.
+- NativeScript.
+- Docker.
+- npm.
+- GitHub.
+- Networking.
+- Software engineering.
+
+Implement a configurable embedding provider.
+
+Use Google Cloud Storage for original documents, extracted files and persistent knowledge artifacts.
+
+Use a suitable vector database or vector-search service for retrieval.
+
+Do not assume Cloud Storage is itself a vector database.
+
+Implement source tracking, document deduplication, update detection and retrieval quality evaluation.
+
+Respect website terms, robots policies, authentication boundaries and copyright restrictions when scraping.
+
+---
+
+# 8. PERSONAL CODING AGENT
+
+Build a real coding agent, not merely a chat interface.
+
+It must support:
+
+- Multi-turn conversations.
+- Project context.
+- Repository exploration.
+- File reading.
+- File creation.
+- File editing.
+- Multi-file changes.
+- Code generation.
+- Debugging.
+- Refactoring.
+- Error analysis.
+- Test generation.
+- Test execution.
+- Documentation research.
+- Dependency analysis.
+- Architecture analysis.
+- Git operations.
+- Deployment guidance.
+- Code review.
+
+Implement a tool registry.
+
+Every tool must have:
+- Defined input schema.
+- Defined output schema.
+- Validation.
+- Permission checks.
+- Error handling.
+- Execution limits.
+- Logging.
+
+Support different operation modes:
+
+1. Chat mode.
+2. Code completion mode.
+3. Debugging mode.
+4. Architecture mode.
+5. Code review mode.
+6. Autonomous task mode.
+
+Autonomous mode must support planning, execution, testing, verification and reporting.
+
+Do not allow unrestricted filesystem or shell access.
+
+Use a sandboxed execution environment.
+
+Require explicit user approval for destructive operations, deployments, secret changes and potentially dangerous shell commands.
+
+The agent must be capable of understanding a large repository without sending every file to the model in every request.
+
+Implement:
+- Repository indexing.
+- File search.
+- Symbol search.
+- Dependency mapping.
+- Context selection.
+- Relevant file retrieval.
+- Context compression.
+- Incremental indexing.
+
+Design the agent to handle repositories containing hundreds of files.
+
+Do not rely on an arbitrary maximum number of files.
+
+---
+
+# 9. API ARCHITECTURE
+
+Use Hono with TypeScript as the primary API framework.
+
+This is mandatory.
+
+The Hono API must handle:
+
+- Authentication.
+- API authorization.
+- Model routing.
+- Request validation.
+- Conversation management.
+- Tool orchestration.
+- Usage tracking.
+- Teacher requests.
+- Training orchestration.
+- Model registry access.
+- Documentation search.
+- Feedback.
+- Monitoring.
+
+Use Zod for request validation.
+
+Use a modular architecture.
+
+Suggested organization:
+
+src/
+  app.ts
+  index.ts
+
+  config/
+    env.ts
+    models.ts
+
+  middleware/
+    auth.ts
+    rate-limit.ts
+    logger.ts
+    validation.ts
+
+  endpoints/
+    chat/
+    completion/
+    debugging/
+    review/
+    models/
+    feedback/
+    training/
+    knowledge/
+    usage/
+
+  services/
+    inference/
+    teacher/
+    evaluator/
+    model-registry/
+    training/
+    retrieval/
+    repository/
+    agent/
+
+  providers/
+    llm/
+    embeddings/
+    search/
+    storage/
+
+  utils/
+  schemas/
+  types/
+
+  helpers/
+
+Keep modules focused and maintainable.
+
+Do not create enormous files.
+
+Prefer small, cohesive files with clear responsibilities.
+
+Avoid duplicated business logic.
+
+The Hono API must not directly perform GPU training.
+
+Implement background job orchestration.
+
+---
+
+# 10. PYTHON ML SERVICES
+
+Use Python for:
+
+- Model inference.
+- Model fine-tuning.
+- Dataset preparation.
+- Evaluation.
+- Embedding generation where appropriate.
+- Model conversion.
+- Benchmarking.
+
+Use vLLM for production inference where supported.
+
+Implement an OpenAI-compatible inference interface.
+
+The Hono gateway must be able to communicate with the Python inference service.
+
+Keep the Python services independently deployable.
+
+Do not force all functionality into a single container.
+
+---
+
+# 11. GOOGLE CLOUD STORAGE
+
+Google Cloud Storage is my primary persistent artifact storage system.
+
+Use it for:
+
+- Foundation model artifacts.
+- LoRA adapters.
+- Training datasets.
+- Validation datasets.
+- Benchmark datasets.
+- Imported teacher examples.
+- Documentation archives.
+- Generated training examples.
+- Model configuration.
+- Model manifests.
+- Training logs.
+- Evaluation reports.
+- Model backups.
+
+Create a clean bucket structure.
+
+Example:
+
+personal-coding-ai/
+
+  foundation-models/
+
+  adapters/
+
+    production/
+
+    candidates/
+
+    archived/
+
+  datasets/
+
+    raw/
+
+    cleaned/
+
+    approved/
+
+    validation/
+
+  knowledge/
+
+    cloudflare/
+
+    google-cloud/
+
+    azure/
+
+    meta/
+
+    frameworks/
+
+    programming/
+
+  benchmarks/
+
+  training-runs/
+
+  evaluations/
+
+  manifests/
+
+  backups/
+
+Implement a storage provider abstraction.
+
+Use Google Cloud SDKs and service-account IAM.
+
+Never embed service-account JSON files or credentials in source code.
+
+Use Google Cloud Secret Manager for secrets.
+
+Use resumable uploads for large files.
+
+Implement file integrity verification and metadata management.
+
+---
+
+# 12. DEPLOYMENT ARCHITECTURE
+
+I will manually manage GitHub and deploy the application to Google Cloud Run.
+
+Generate a complete deployment-ready repository.
+
+Use separate services:
+
+A. Hono API Gateway.
+
+B. Python Model Inference Service.
+
+C. AI Teacher and Evaluation Service.
+
+D. Training Job.
+
+E. Knowledge ingestion worker.
+
+Use Cloud Run Services for long-running APIs.
+
+Use Cloud Run Jobs for batch operations and training orchestration where supported.
+
+Use GPU-enabled infrastructure for LoRA training and inference when required.
+
+The application must support scaling to zero where appropriate.
+
+Do not assume all services require a GPU.
+
+Generate:
+
+- Dockerfiles.
+- .dockerignore files.
+- Requirements files.
+- package.json.
+- TypeScript configurations.
+- Environment examples.
+- Cloud Run deployment scripts.
+- IAM setup instructions.
+- Cloud Storage setup.
+- Health checks.
+- Readiness checks.
+- Liveness checks.
+- Logging configuration.
+- Error handling.
+- Deployment documentation.
+
+Pin production dependencies and container image versions.
+
+Make deployments reproducible.
+
+---
+
+# 13. BUDGET MANAGEMENT
+
+My initial target is approximately $20 per month.
+
+Treat this as a strict operating constraint.
+
+The application must implement:
+
+- GPU scale-to-zero.
+- Maximum one GPU instance initially.
+- No permanently running training machine.
+- Batch teacher API calls.
+- Teacher API spending limits.
+- Request token limits.
+- Usage tracking.
+- Storage monitoring.
+- Model caching.
+- Training scheduling.
+- Monthly usage reports.
+- Cost estimation before expensive jobs.
+
+Implement budget thresholds:
+
+- 50%: notification.
+- 75%: warning.
+- 90%: stop optional training and expensive teacher requests.
+- 100%: pause nonessential paid workloads.
+
+Use Cloud Billing budgets and Cloud Run spend caps where supported.
+
+Make it clear that application-level controls cannot guarantee an exact total cloud bill because billing data and some charges can be delayed.
+
+Never silently initiate an expensive GPU job.
+
+Require a configured spending allowance before launching training.
+
+---
+
+# 14. MODEL IMPROVEMENT LOOP
+
+Implement the following lifecycle:
+
+1. Coding agent receives user tasks.
+2. Approved interactions are captured.
+3. Sensitive information is removed.
+4. Candidate examples are generated.
+5. Teacher evaluates and corrects them.
+6. Automated checks validate the examples.
+7. Approved examples enter the dataset.
+8. Dataset version is created.
+9. Training scheduler checks whether enough new examples exist.
+10. LoRA training job executes.
+11. Candidate model is benchmarked.
+12. Results are compared with production.
+13. Model is promoted if it meets the required thresholds.
+14. Previous model remains available for rollback.
+
+Do not retrain continuously on every interaction.
+
+Use configurable minimum dataset thresholds and scheduled batch training.
+
+Implement human approval as the default requirement for major model promotions.
+
+Provide an optional automated promotion mode with strict independent benchmark requirements.
+
+---
+
+# 15. PROFESSIONAL CODING QUALITY
+
+The system must aim for professional software engineering quality.
+
+Requirements:
+
+- TypeScript strict mode.
+- Proper Python type annotations.
+- Clear module boundaries.
+- Dependency injection where appropriate.
+- Centralized error handling.
+- Structured logging.
+- Secure authentication.
+- Input validation.
+- Output validation.
+- API documentation.
+- Unit testing.
+- Integration testing.
+- Security testing.
+- Performance testing.
+- Reproducible builds.
+- Graceful failure handling.
+
+Avoid:
+
+- Giant source files.
+- Circular dependencies.
+- Repeated implementations.
+- Hardcoded credentials.
+- Fake integrations.
+- In-memory storage for persistent production data.
+- Unbounded loops.
+- Uncontrolled API requests.
+- Uncontrolled model training.
+- Unrestricted agent execution.
+
+---
+
+# 16. PROJECT DELIVERABLES
+
+Generate a complete GitHub-ready repository.
+
+It must contain:
+
+1. Hono API gateway.
+2. Python inference service.
+3. LoRA training implementation.
+4. Automated AI Model Factory.
+5. Teacher integration.
+6. Dataset generation pipeline.
+7. Dataset validation.
+8. Automated benchmarking.
+9. Model registry.
+10. Model promotion and rollback.
+11. Google Cloud Storage integration.
+12. Documentation RAG system.
+13. Search and scraping system.
+14. Coding agent.
+15. Repository indexing.
+16. Tool execution framework.
+17. Authentication.
+18. Cost monitoring.
+19. Docker configuration.
+20. Cloud Run deployment configuration.
+21. Environment variable documentation.
+22. API documentation.
+23. Testing suite.
+24. Operational documentation.
+
+Create a comprehensive README explaining:
+
+- What the platform does.
+- Architecture.
+- Local development.
+- Environment variables.
+- Model setup.
+- Training.
+- Teacher configuration.
+- Cloud Storage setup.
+- Cloud Run deployment.
+- Model benchmarking.
+- Troubleshooting.
+- Cost management.
+
+Include a .env.example containing variable names only, never real secrets.
+
+---
+
+# 17. DEVELOPMENT EXECUTION STRATEGY
+
+Do not attempt to generate a massive untested application in one response.
+
+Work in controlled implementation stages.
+
+STAGE 1:
+Analyze the requirements and produce the final repository architecture, service boundaries and data flows.
+
+STAGE 2:
+Implement the Hono gateway, configuration, validation, authentication and health checks.
+
+STAGE 3:
+Implement Python inference and model serving.
+
+STAGE 4:
+Implement Google Cloud Storage and the model registry.
+
+STAGE 5:
+Implement LoRA training.
+
+STAGE 6:
+Implement the teacher and autonomous dataset factory.
+
+STAGE 7:
+Implement evaluation, benchmarks and promotion.
+
+STAGE 8:
+Implement the knowledge engine and documentation retrieval.
+
+STAGE 9:
+Implement the personal coding agent and repository intelligence.
+
+STAGE 10:
+Implement Cloud Run deployment and cost management.
+
+STAGE 11:
+Run integration tests, fix errors and produce deployment documentation.
+
+At every stage:
+
+- Generate actual source files.
+- Check imports.
+- Check dependency compatibility.
+- Check TypeScript types.
+- Check Python syntax.
+- Test API contracts.
+- Verify integration between services.
+- Fix errors before continuing.
+
+Maintain a project progress manifest so work can resume without losing architectural decisions.
+
+Never silently replace an already working implementation with a different architecture.
+
+Do not claim that a component is complete unless it has been implemented and tested.
+
+If a requested capability depends on an unavailable external API, implement an adapter and clearly document the limitation.
+
+---
+
+# 18. DEFINITION OF SUCCESS
+
+The final platform must allow me to:
+
+1. Open my coding interface.
+2. Ask complex programming questions.
+3. Give it access to my project repository.
+4. Ask it to build and debug software.
+5. Let it research current technical documentation.
+6. Receive production-oriented implementations.
+7. Submit feedback.
+8. Allow the AI Model Factory to generate training examples.
+9. Let the teacher evaluate and correct examples.
+10. Automatically execute LoRA training jobs.
+11. Benchmark new model versions.
+12. Review model performance.
+13. Approve improved versions.
+14. Deploy new models to Cloud Run.
+15. Use the improved model through the same API.
+
+My involvement should primarily be coding, giving feedback, reviewing benchmark results and approving important model upgrades.
+
+The AI system should automate as much of the training and maintenance lifecycle as technically possible.
+
+---
+
+# 19. FINAL INSTRUCTION
+
+I want a serious, extensible and maintainable personal AI engineering platform.
+
+Do not optimize for an impressive demonstration.
+
+Optimize for actual capability, correctness, reliability, security, maintainability and cost efficiency.
+
+Do not promise that a 4B model will outperform all commercial coding models. Instead, build a system that combines a strong foundation model, specialized training, current documentation retrieval, reliable tools, independent evaluation and a controlled improvement loop.
+
+The long-term goal is to create a personal coding intelligence platform that becomes increasingly specialized in my software engineering environment and can outperform a generic model on the tasks it has been trained and evaluated to handle.
+
+Start with Stage 1, then implement the project systematically. Do not stop after producing the architecture.

@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+dist-cli/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+.codiz-data/
+__pycache__/
+*.py[cod]
+.venv/
+ml_services/checkpoints/
+ml_services/adapters/

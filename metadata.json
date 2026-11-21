@@ -1,0 +1,6 @@
+{
+  "name": "Codiz",
+  "description": "Low-resource personal AI coding intelligence platform optimized for African developers: 4B open-weight local/Cloud Run models, Hono API gateway, automated LoRA Model Factory, and strict $20/mo budget controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

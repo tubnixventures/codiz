@@ -1,0 +1,52 @@
+{
+  "name": "codiz",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Low-resource agentic AI coding CLI and self-hosted Qwen platform",
+  "type": "module",
+  "bin": {
+    "codiz": "./bin/codiz.mjs"
+  },
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "node server.ts",
+    "build": "vite build && npm run build:cli",
+    "build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-cli/codiz.mjs",
+    "codiz": "node bin/codiz.mjs",
+    "setup": "node scripts/setup.mjs",
+    "postinstall": "node scripts/build-cli-safe.mjs",
+    "preview": "vite preview",
+    "test": "tsx --test tests/*.test.ts",
+    "clean": "node -e \"const fs=require('node:fs');['dist','dist-cli','server.js'].forEach(p=>fs.rmSync(p,{recursive:true,force:true}))\"",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^9.0.0",
+    "@google/genai": "^3.6.1",
+    "@hono/node-server": "^2.1.11",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "better-sqlite3": "^13.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "hono": "^4.13.19",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^8.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "@types/express": "^4.17.21"
+  }
+}
