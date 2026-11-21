@@ -110,7 +110,9 @@ export function ingestTrainingExample(params: {
     cScrub.cleaned.includes('function ') ||
     cScrub.cleaned.includes('class ') ||
     cScrub.cleaned.includes('import ') ||
-    cScrub.cleaned.includes('def ');
+    cScrub.cleaned.includes('def ') ||
+    cScrub.cleaned.includes('"action":"tool_call"') ||
+    cScrub.cleaned.includes('"action":"final_answer"');
 
   const stage: DatasetStage = hasCodeOrStruct ? 'cleaned' : 'raw';
   const id = `ex-${crypto.randomUUID().slice(0, 10)}`;
@@ -411,4 +413,85 @@ function mapRowToExample(row: Record<string, any>): TrainingExampleRecord {
     contentHash: row.content_hash,
     createdAt: row.created_at,
   };
+}
+
+export function seedCliAgentTrainingExamples(): { inserted: number; deduplicated: number } {
+  const agentSystem =
+    'You are Codiz, a fine-tuned local CLI coding agent with tools: list_files, grep_search, read_file, write_file, edit_file, run_command, web_search, web_scrape, evaluate_code.';
+
+  const pairs: Array<{ prompt: string; completion: string; category: string }> = [
+    {
+      category: 'cli-agent-npm',
+      prompt: 'Install express and zod in this Node project and verify package.json updates.',
+      completion: JSON.stringify({
+        thought: 'Install express and zod using npm via run_command.',
+        action: 'tool_call',
+        tool: 'run_command',
+        input: { command: 'npm install express zod', reason: 'Install requested packages' },
+      }),
+    },
+    {
+      category: 'cli-agent-files',
+      prompt: 'Create a TypeScript CLI helper at src/hello.ts that prints Hello Codiz and test it with tsx.',
+      completion: JSON.stringify({
+        thought: 'Write src/hello.ts first, then execute it to verify.',
+        action: 'tool_call',
+        tool: 'write_file',
+        input: {
+          path: 'src/hello.ts',
+          content: "export function greet(name = 'Codiz'): string {\n  return `Hello ${name}`;\n}\nconsole.log(greet());\n",
+          reason: 'Create requested TypeScript CLI helper',
+        },
+      }),
+    },
+    {
+      category: 'cli-agent-web',
+      prompt: 'Search the web for the latest Hono Zod validator middleware docs and summarize how to use it.',
+      completion: JSON.stringify({
+        thought: 'Search the live web for Hono Zod validator middleware documentation.',
+        action: 'tool_call',
+        tool: 'web_search',
+        input: { query: 'hono zod validator middleware official docs', limit: 4 },
+      }),
+    },
+    {
+      category: 'cli-agent-scrape',
+      prompt: 'Read the documentation page at https://hono.dev/docs/guides/validation and extract the example.',
+      completion: JSON.stringify({
+        thought: 'Scrape the official Hono validation documentation page for accurate code.',
+        action: 'tool_call',
+        tool: 'web_scrape',
+        input: { url: 'https://hono.dev/docs/guides/validation', maxChars: 4200 },
+      }),
+    },
+    {
+      category: 'cli-agent-debug',
+      prompt: 'Search the codebase for where rate limiting is configured and inspect the file.',
+      completion: JSON.stringify({
+        thought: 'Use grep_search to locate rate limiting references across the repository.',
+        action: 'tool_call',
+        tool: 'grep_search',
+        input: { query: 'rateLimit', isRegex: false },
+      }),
+    },
+  ];
+
+  let inserted = 0;
+  let deduplicated = 0;
+  for (const p of pairs) {
+    const res = ingestTrainingExample({
+      prompt: p.prompt,
+      completion: p.completion,
+      systemContext: agentSystem,
+      source: 'teacher-synthetic',
+      difficulty: 'intermediate',
+      category: p.category,
+      licenseMetadata: 'codiz-local-agent',
+      attribution: 'Codiz CLI Agent Seed',
+      datasetVersion: 'ds-cli-agent-v1',
+    });
+    if (res.deduplicated) deduplicated++;
+    else inserted++;
+  }
+  return { inserted, deduplicated };
 }

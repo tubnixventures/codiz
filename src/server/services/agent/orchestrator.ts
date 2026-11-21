@@ -4,22 +4,26 @@ import { generateCompletion, type LlmMessage } from '../../providers/llm/router.
 import type { AgentMode } from '../../types/domain.ts';
 import { selectCompressedContext } from '../repository/indexer.ts';
 import { searchKnowledge } from '../retrieval/knowledge.ts';
-import { TOOL_REGISTRY, runRegisteredTool } from './tools.ts';
+import {
+  type ConfirmActionRequest,
+  TOOL_REGISTRY,
+  runRegisteredTool,
+} from './tools.ts';
 
-const MAX_AGENT_STEPS = 5;
+const MAX_AGENT_STEPS = 8;
 
 const MODE_INSTRUCTIONS: Record<AgentMode, string> = {
-  chat: 'You are Codiz, a practical principal software engineering assistant optimized for low-resource environments, Cloudflare, Google Cloud, Azure, Meta APIs, TypeScript/Hono, Flutter/Dart, C++, and Python.',
+  chat: 'You are Codiz, a practical principal software engineering CLI assistant optimized for local execution, TypeScript, Python, Flutter/Dart, C++, and cloud APIs.',
   completion:
     'You are Codiz in Code Completion mode. Output concise, type-safe, idiomatic code ready to drop into production with minimal boilerplate.',
   debugging:
-    'You are Codiz in Debugging mode. Diagnose root causes systematically, inspect files/types/edge cases using tools when needed, and provide exact minimal fixes.',
+    'You are Codiz in Debugging mode. Inspect files, run tests/commands, read error output, apply targeted fixes with edit_file, and verify.',
   architecture:
-    'You are Codiz in Architecture mode. Design modular, low-cost, scale-to-zero systems with clear module boundaries, security guarantees, and cost awareness.',
+    'You are Codiz in Architecture mode. Design modular, low-cost, local-first systems with clear module boundaries and security guarantees.',
   review:
-    'You are Codiz in Code Review mode. Audit code for security vulnerabilities, memory/CPU overhead, type errors, API misuse, and maintainability.',
+    'You are Codiz in Code Review mode. Audit code for security vulnerabilities, memory/CPU overhead, type errors, and maintainability.',
   autonomous:
-    'You are Codiz in Autonomous Agent mode. Autonomously explore files, consult documentation, validate code with evaluate_code, propose file writes when requested, and report verified findings.',
+    'You are Codiz, an autonomous CLI coding agent. Explore files, search/scrape live web docs when needed, create/edit files, run terminal commands (npm, python, git, tsc) to verify your work, and report verified results.',
 };
 
 const AgentStepSchema = z.object({
@@ -123,6 +127,7 @@ export async function runAgentTurn(params: {
   preferProvider?: 'auto' | 'local-ollama' | 'vllm' | 'gemini';
   useRepoContext?: boolean;
   useKnowledgeRag?: boolean;
+  onConfirmAction?: (req: ConfirmActionRequest) => Promise<boolean>;
   onStepStart?: (step: number, maxSteps: number) => void;
   onToolEvent?: (trace: AgentTraceStep) => void;
   onToken?: (delta: string) => void;
@@ -344,7 +349,9 @@ export async function runAgentTurn(params: {
       }
       seenToolCalls.add(callSignature);
 
-      const execResult = await runRegisteredTool(toolName, toolInput);
+      const execResult = await runRegisteredTool(toolName, toolInput, {
+        onConfirmAction: params.onConfirmAction,
+      });
       const obs = summarizeObservation(toolName, execResult.result);
       if (obs.approvalId) pendingApprovalIds.push(obs.approvalId);
 

@@ -1,15 +1,39 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { z } from 'zod';
+import { getEnv } from '../../config/env.ts';
 import { getDb } from '../../db/sqlite.ts';
 import { evaluateCodeSnippet } from '../evaluator/runner.ts';
 import {
   indexWorkspaceRepository,
+  invalidateRepoIndexCache,
   resolveSafeWorkspacePath,
   selectCompressedContext,
 } from '../repository/indexer.ts';
 import { searchKnowledge } from '../retrieval/knowledge.ts';
+import { webScrape, webSearch } from '../web/research.ts';
 
 export type ToolRiskLevel = 'read' | 'write' | 'destructive';
+
+export type ConfirmActionRequest =
+  | {
+      kind: 'file_write';
+      path: string;
+      oldContent: string | null;
+      newContent: string;
+      reason: string;
+    }
+  | {
+      kind: 'command';
+      command: string;
+      cwd: string;
+      reason: string;
+    };
+
+export interface ToolExecutionContext {
+  onConfirmAction?: (req: ConfirmActionRequest) => Promise<boolean>;
+}
 
 export interface RegisteredTool<TInput = unknown, TOutput = unknown> {
   name: string;
@@ -17,8 +41,19 @@ export interface RegisteredTool<TInput = unknown, TOutput = unknown> {
   riskLevel: ToolRiskLevel;
   requiresApproval: boolean;
   inputSchema: z.ZodType<TInput>;
-  execute: (input: TInput) => Promise<TOutput>;
+  execute: (input: TInput, ctx?: ToolExecutionContext) => Promise<TOutput>;
 }
+
+const ListFilesSchema = z.object({
+  dir: z.string().max(300).optional(),
+  limit: z.number().int().min(1).max(200).default(80),
+});
+
+const GrepSearchSchema = z.object({
+  query: z.string().min(1).max(200),
+  isRegex: z.boolean().default(false),
+  maxMatches: z.number().int().min(1).max(60).default(25),
+});
 
 const ReadFileSchema = z.object({
   path: z.string().min(1).max(300),
@@ -31,10 +66,17 @@ const SearchRepoSchema = z.object({
   maxFiles: z.number().int().min(1).max(20).default(6),
 });
 
-const WriteFileProposalSchema = z.object({
+const WriteFileSchema = z.object({
   path: z.string().min(1).max(300),
-  content: z.string().max(100_000),
-  reason: z.string().min(3).max(500),
+  content: z.string().max(150_000),
+  reason: z.string().min(2).max(500).default('Create or update file'),
+});
+
+const EditFileSchema = z.object({
+  path: z.string().min(1).max(300),
+  oldText: z.string().min(1).max(40_000),
+  newText: z.string().max(40_000),
+  reason: z.string().min(2).max(500).default('Targeted file edit'),
 });
 
 const SearchDocsSchema = z.object({
@@ -43,14 +85,24 @@ const SearchDocsSchema = z.object({
   limit: z.number().int().min(1).max(10).default(4),
 });
 
+const WebSearchSchema = z.object({
+  query: z.string().min(1).max(300),
+  limit: z.number().int().min(1).max(8).default(5),
+});
+
+const WebScrapeSchema = z.object({
+  url: z.string().url().max(1000),
+  maxChars: z.number().int().min(500).max(12000).default(4200),
+});
+
 const EvaluateCodeSchema = z.object({
   code: z.string().min(1).max(24000),
   language: z.enum(['typescript', 'python', 'other']).default('typescript'),
 });
 
-const ProposeCommandSchema = z.object({
+const CommandSchema = z.object({
   command: z.string().min(1).max(400),
-  reason: z.string().min(3).max(400),
+  reason: z.string().min(2).max(400).default('Run workspace CLI command'),
 });
 
 const BLOCKED_COMMAND_PATTERNS: RegExp[] = [
@@ -70,7 +122,153 @@ export function validateProposedShellCommand(cmd: string): void {
   }
 }
 
+async function applyOrQueueFileWrite(
+  relPath: string,
+  newContent: string,
+  reason: string,
+  ctx?: ToolExecutionContext
+) {
+  const safeTarget = resolveSafeWorkspacePath(relPath);
+  const oldContent = fs.existsSync(safeTarget) ? fs.readFileSync(safeTarget, 'utf8') : null;
+
+  if (ctx?.onConfirmAction) {
+    const approved = await ctx.onConfirmAction({
+      kind: 'file_write',
+      path: relPath,
+      oldContent,
+      newContent,
+      reason,
+    });
+    if (!approved) {
+      return {
+        status: 'rejected_by_user',
+        path: relPath,
+        message: `User declined write to ${relPath}.`,
+      };
+    }
+    fs.mkdirSync(path.dirname(safeTarget), { recursive: true });
+    fs.writeFileSync(safeTarget, newContent, 'utf8');
+    invalidateRepoIndexCache();
+    return {
+      status: 'applied',
+      path: relPath,
+      bytesWritten: Buffer.byteLength(newContent, 'utf8'),
+      message: `${oldContent === null ? 'Created' : 'Updated'} ${relPath}.`,
+    };
+  }
+
+  const db = getDb();
+  const id = `apr-${crypto.randomUUID().slice(0, 10)}`;
+  db.prepare(
+    `INSERT INTO agent_approvals (id, tool_name, action_summary, payload_json, risk_level, status, created_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`
+  ).run(
+    id,
+    'propose_file_write',
+    `Write ${relPath}: ${reason}`,
+    JSON.stringify({ path: relPath, content: newContent, reason }),
+    'write',
+    new Date().toISOString()
+  );
+  return {
+    approvalId: id,
+    status: 'awaiting_human_approval',
+    message: `Queued write to ${relPath}. Approve to apply.`,
+  };
+}
+
+async function runOrQueueShellCommand(
+  command: string,
+  reason: string,
+  ctx?: ToolExecutionContext
+) {
+  validateProposedShellCommand(command);
+  const env = getEnv();
+
+  if (ctx?.onConfirmAction) {
+    const approved = await ctx.onConfirmAction({
+      kind: 'command',
+      command,
+      cwd: env.CODIZ_WORKSPACE_ROOT,
+      reason,
+    });
+    if (!approved) {
+      return {
+        status: 'rejected_by_user',
+        command,
+        message: `User declined running command "${command}".`,
+      };
+    }
+
+    const started = Date.now();
+    const shellBin = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+    const shellArgs = process.platform === 'win32' ? ['/c', command] : ['-c', command];
+    const res = spawnSync(shellBin, shellArgs, {
+      cwd: env.CODIZ_WORKSPACE_ROOT,
+      encoding: 'utf8',
+      timeout: 45_000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    const stdout = (res.stdout ?? '').slice(-2500);
+    const stderr = (res.stderr ?? '').slice(-2000);
+    invalidateRepoIndexCache();
+    return {
+      status: 'executed',
+      command,
+      exitCode: res.status ?? (res.error ? 1 : 0),
+      durationMs: Date.now() - started,
+      stdout,
+      stderr,
+      ...(res.error ? { error: res.error.message } : {}),
+    };
+  }
+
+  const db = getDb();
+  const id = `apr-${crypto.randomUUID().slice(0, 10)}`;
+  db.prepare(
+    `INSERT INTO agent_approvals (id, tool_name, action_summary, payload_json, risk_level, status, created_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`
+  ).run(
+    id,
+    'propose_command',
+    `Run \`${command}\`: ${reason}`,
+    JSON.stringify({ command, reason }),
+    'destructive',
+    new Date().toISOString()
+  );
+  return {
+    approvalId: id,
+    status: 'awaiting_human_approval',
+    message: `Queued command "${command}". Approve to execute.`,
+  };
+}
+
 export const TOOL_REGISTRY: Record<string, RegisteredTool<any, any>> = {
+  list_files: {
+    name: 'list_files',
+    description: 'List project files and directories in the workspace (optionally under a subfolder).',
+    riskLevel: 'read',
+    requiresApproval: false,
+    inputSchema: ListFilesSchema,
+    execute: async (input: z.infer<typeof ListFilesSchema>) => {
+      const snap = indexWorkspaceRepository();
+      const prefix = input.dir ? input.dir.replace(/^\/+|\/+$/g, '') + '/' : '';
+      const filtered = prefix
+        ? snap.files.filter((f) => f.relativePath.startsWith(prefix))
+        : snap.files;
+      return {
+        workspace: snap.rootName,
+        totalMatching: filtered.length,
+        files: filtered.slice(0, input.limit).map((f) => ({
+          path: f.relativePath,
+          language: f.language,
+          lines: f.lineCount,
+        })),
+      };
+    },
+  },
+
   repo_index: {
     name: 'repo_index',
     description: 'List project files, detected languages, and exported symbols across the repository.',
@@ -91,6 +289,41 @@ export const TOOL_REGISTRY: Record<string, RegisteredTool<any, any>> = {
           symbols: f.symbols.slice(0, 8),
         })),
       };
+    },
+  },
+
+  grep_search: {
+    name: 'grep_search',
+    description: 'Search for text or regex patterns across workspace source files with file:line hits.',
+    riskLevel: 'read',
+    requiresApproval: false,
+    inputSchema: GrepSearchSchema,
+    execute: async (input: z.infer<typeof GrepSearchSchema>) => {
+      const snap = indexWorkspaceRepository();
+      const matches: Array<{ path: string; line: number; text: string }> = [];
+      const regex = input.isRegex ? new RegExp(input.query, 'i') : null;
+      const needle = input.query.toLowerCase();
+
+      for (const f of snap.files) {
+        if (matches.length >= input.maxMatches) break;
+        const resolved = resolveSafeWorkspacePath(f.relativePath);
+        let content = '';
+        try {
+          content = fs.readFileSync(resolved, 'utf8');
+        } catch {
+          continue;
+        }
+        const lines = content.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const hit = regex ? regex.test(line) : line.toLowerCase().includes(needle);
+          if (hit) {
+            matches.push({ path: f.relativePath, line: i + 1, text: line.trim().slice(0, 180) });
+            if (matches.length >= input.maxMatches) break;
+          }
+        }
+      }
+      return { query: input.query, matchCount: matches.length, matches };
     },
   },
 
@@ -125,13 +358,35 @@ export const TOOL_REGISTRY: Record<string, RegisteredTool<any, any>> = {
     requiresApproval: false,
     inputSchema: SearchRepoSchema,
     execute: async (input: z.infer<typeof SearchRepoSchema>) => {
-      return selectCompressedContext({ query: input.query, maxTokenBudget: 1800 });
+      return selectCompressedContext({ query: input.query, maxTokenBudget: 1600 });
+    },
+  },
+
+  web_search: {
+    name: 'web_search',
+    description: 'Search the live web for documentation, npm/PyPI packages, error solutions, and guides.',
+    riskLevel: 'read',
+    requiresApproval: false,
+    inputSchema: WebSearchSchema,
+    execute: async (input: z.infer<typeof WebSearchSchema>) => {
+      return webSearch(input.query, input.limit);
+    },
+  },
+
+  web_scrape: {
+    name: 'web_scrape',
+    description: 'Fetch and extract clean readable text and code blocks from a public documentation/web URL.',
+    riskLevel: 'read',
+    requiresApproval: false,
+    inputSchema: WebScrapeSchema,
+    execute: async (input: z.infer<typeof WebScrapeSchema>) => {
+      return webScrape(input.url, input.maxChars);
     },
   },
 
   search_documentation: {
     name: 'search_documentation',
-    description: 'Search Codiz offline/hybrid technical documentation collections.',
+    description: 'Search Codiz local offline technical documentation cache.',
     riskLevel: 'read',
     requiresApproval: false,
     inputSchema: SearchDocsSchema,
@@ -151,71 +406,80 @@ export const TOOL_REGISTRY: Record<string, RegisteredTool<any, any>> = {
     },
   },
 
+  write_file: {
+    name: 'write_file',
+    description: 'Create a new file or overwrite a file in the workspace (with user confirmation).',
+    riskLevel: 'write',
+    requiresApproval: true,
+    inputSchema: WriteFileSchema,
+    execute: async (input: z.infer<typeof WriteFileSchema>, ctx?: ToolExecutionContext) => {
+      return applyOrQueueFileWrite(input.path, input.content, input.reason, ctx);
+    },
+  },
+
+  edit_file: {
+    name: 'edit_file',
+    description: 'Replace an exact text block in an existing workspace file (faster and safer than full overwrite).',
+    riskLevel: 'write',
+    requiresApproval: true,
+    inputSchema: EditFileSchema,
+    execute: async (input: z.infer<typeof EditFileSchema>, ctx?: ToolExecutionContext) => {
+      const safeTarget = resolveSafeWorkspacePath(input.path);
+      if (!fs.existsSync(safeTarget)) {
+        return { error: `File not found: ${input.path}` };
+      }
+      const current = fs.readFileSync(safeTarget, 'utf8');
+      if (!current.includes(input.oldText)) {
+        return {
+          error: `oldText not found verbatim in ${input.path}. Read the file first to copy exact lines.`,
+        };
+      }
+      const next = current.replace(input.oldText, input.newText);
+      return applyOrQueueFileWrite(input.path, next, input.reason, ctx);
+    },
+  },
+
+  run_command: {
+    name: 'run_command',
+    description:
+      'Execute a workspace shell command (e.g. npm install, npm test, tsc --noEmit, python script.py, git status) and return stdout/stderr.',
+    riskLevel: 'destructive',
+    requiresApproval: true,
+    inputSchema: CommandSchema,
+    execute: async (input: z.infer<typeof CommandSchema>, ctx?: ToolExecutionContext) => {
+      return runOrQueueShellCommand(input.command, input.reason, ctx);
+    },
+  },
+
   propose_file_write: {
     name: 'propose_file_write',
     description:
-      'Queue a sandboxed file creation or modification for explicit human approval before writing.',
+      'Create or update a file inside the sandboxed workspace (alias of write_file).',
     riskLevel: 'write',
     requiresApproval: true,
-    inputSchema: WriteFileProposalSchema,
-    execute: async (input: z.infer<typeof WriteFileProposalSchema>) => {
-      // Validate path confinement immediately
-      resolveSafeWorkspacePath(input.path);
-      const db = getDb();
-      const id = `apr-${crypto.randomUUID().slice(0, 10)}`;
-      db.prepare(
-        `INSERT INTO agent_approvals (id, tool_name, action_summary, payload_json, risk_level, status, created_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?)`
-      ).run(
-        id,
-        'propose_file_write',
-        `Write ${input.path}: ${input.reason}`,
-        JSON.stringify(input),
-        'write',
-        new Date().toISOString()
-      );
-      return {
-        approvalId: id,
-        status: 'awaiting_human_approval',
-        message: `Queued write to ${input.path}. Approve to apply.`,
-      };
+    inputSchema: WriteFileSchema,
+    execute: async (input: z.infer<typeof WriteFileSchema>, ctx?: ToolExecutionContext) => {
+      return applyOrQueueFileWrite(input.path, input.content, input.reason, ctx);
     },
   },
 
   propose_command: {
     name: 'propose_command',
     description:
-      'Queue a workspace terminal command (e.g. npm test, tsc --noEmit, git status) for explicit human approval before running.',
+      'Execute a workspace terminal command (alias of run_command).',
     riskLevel: 'destructive',
     requiresApproval: true,
-    inputSchema: ProposeCommandSchema,
-    execute: async (input: z.infer<typeof ProposeCommandSchema>) => {
-      validateProposedShellCommand(input.command);
-      const db = getDb();
-      const id = `apr-${crypto.randomUUID().slice(0, 10)}`;
-      db.prepare(
-        `INSERT INTO agent_approvals (id, tool_name, action_summary, payload_json, risk_level, status, created_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?)`
-      ).run(
-        id,
-        'propose_command',
-        `Run \`${input.command}\`: ${input.reason}`,
-        JSON.stringify(input),
-        'destructive',
-        new Date().toISOString()
-      );
-      return {
-        approvalId: id,
-        status: 'awaiting_human_approval',
-        message: `Queued command "${input.command}". Approve to execute.`,
-      };
+    inputSchema: CommandSchema,
+    execute: async (input: z.infer<typeof CommandSchema>, ctx?: ToolExecutionContext) => {
+      return runOrQueueShellCommand(input.command, input.reason, ctx);
     },
   },
 };
 
 export async function runRegisteredTool(
   toolName: string,
-  rawInput: unknown
+  rawInput: unknown,
+  ctx?: ToolExecutionContext
 ): Promise<{ ok: boolean; tool: string; result: unknown }> {
   const tool = TOOL_REGISTRY[toolName];
   if (!tool) {
@@ -230,8 +494,10 @@ export async function runRegisteredTool(
     };
   }
   try {
-    const result = await tool.execute(parsed.data);
-    return { ok: true, tool: toolName, result };
+    const result = await tool.execute(parsed.data, ctx);
+    const hasError =
+      result && typeof result === 'object' && 'error' in result && Boolean((result as { error?: unknown }).error);
+    return { ok: !hasError, tool: toolName, result };
   } catch (err) {
     return {
       ok: false,

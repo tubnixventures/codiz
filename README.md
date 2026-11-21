@@ -34,29 +34,27 @@ codiz
 ```
 
 This opens a Muse-Code-style bordered multi-line terminal prompt with:
-- **Multi-line editing**: `Alt+Enter`, `Ctrl+J`, or trailing `\` + `Enter` (paste-safe with bracketed paste).
-- **`@file` & `/command` Tab autocomplete**: Type `@src/` + `Tab` to pin files or `/` + `Tab` for commands.
-- **Multi-step agentic tool loop (max 5 steps)**: `repo_index`, `read_file`, `search_repo_context`, `search_documentation`, `evaluate_code`, `propose_file_write`, and `propose_command`.
-- **Human-in-the-loop terminal diff approvals**: Inspect colored `+`/`-` diffs and approve `[y/N]` before Codiz writes files or runs shell commands.
+- **Real CLI Coding Tools (mid-loop execution)**: `list_files`, `grep_search`, `read_file`, `write_file`, `edit_file`, and `run_command` (`npm install`, `npm test`, `python`, `tsc`, `git`) with real `stdout`/`stderr` feedback so the agent sees errors and fixes them.
+- **Live Web Search & Web Scraping**: `web_search` and `web_scrape` (with SSRF & `robots.txt` protection) so the local Qwen model can look up live documentation and packages.
+- **Fine-Tuned Local Qwen CLI Agent**: Built-in `codiz finetune` exports ChatML tool-calling QLoRA splits (`train.jsonl` / `val.jsonl`), and `codiz-local` specializes Qwen for low-resource CLI tool use.
+- **Multi-line & `@file` Autocomplete**: `Alt+Enter`/`Ctrl+J` newlines, `@file` + `Tab` pinning, and interactive `[y]es / [n]o / [a]ll` approvals (or `--yes` / `/yolo`).
 
 #### Useful CLI Commands
-- `codiz` — Launch interactive coding terminal
-- `codiz "fix the validation bug in @src/server/app.ts"` — One-shot agentic task
+- `codiz` — Launch interactive coding terminal (auto-starts local Ollama + `codiz-local`)
+- `codiz chat -p "write a python function"` — One-shot local execution
+- `codiz -y "create a Hono hello-world script and test it with tsx"` — Run with auto-approved file/command steps
+- `codiz finetune` — Export QLoRA tool-calling dataset for local Qwen fine-tuning
 - `codiz doctor` — Hardware & Ollama diagnostics
-- `codiz tune` — Create CPU/RAM-optimized `codiz-local` model
 - `codiz index` — Index workspace symbols & check file count
-- `codiz serve` — Launch the full Web Workbench UI + Hono API + VS Code `/api/v1/chat/completions` server on port `3000`
+- `codiz serve` — Launch optional Web Dashboard + VS Code `/api/v1/chat/completions` server on port `3000`
 
 #### Interactive Slash Commands
-- `/mode <autonomous|debugging|chat|review|architecture|completion>`
-- `/model [tag]` — Inspect or switch active local Qwen model
-- `/read <path>` — Pin a file into conversation context
-- `/eval <path>` — Run TypeScript syntax & security smell check on a file
-- `/search <query>` — Search the 20-collection Knowledge RAG store
-- `/approve` — Review pending file writes / command proposals
-- `/clear` — Start a fresh conversation
-- `/serve` — Launch Web Dashboard + VS Code API gateway
-- `/exit`
+- `/search <query>` — Live web search
+- `/web <url>` — Scrape & extract text + code blocks from a URL
+- `/run <cmd>` — Execute a workspace shell command directly
+- `/read <path>` / `/eval <path>` / `/docs <query>`
+- `/yolo` — Toggle session auto-approve for writes & commands
+- `/finetune` / `/mode <name>` / `/model [tag]` / `/clear` / `/serve` / `/exit`
 
 ---
 

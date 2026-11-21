@@ -267,4 +267,59 @@ describe('Codiz Platform Integration & Security Suite', () => {
     assert.ok(profile.recommendedThreads >= 2);
     assert.ok(profile.recommendedBaseTag.includes('qwen'));
   });
+
+  it('supports mid-loop write_file, edit_file, grep_search, run_command, web SSRF guard, and agent fine-tune seeding', async () => {
+    const { runRegisteredTool } = await import('../src/server/services/agent/tools.ts');
+    const { parseDuckDuckGoHtml } = await import('../src/server/services/web/research.ts');
+    const { seedCliAgentTrainingExamples } = await import('../src/server/services/teacher/factory.ts');
+
+    // 1. DuckDuckGo HTML parsing & SSRF filtering
+    const sampleHtml = `
+      <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fhono.dev%2Fdocs">Hono Docs</a>
+      <a class="result__snippet">Fast web framework</a>
+      <a class="result__a" href="http://127.0.0.1:8080/secret">Internal Blocked</a>
+      <a class="result__snippet">Should be blocked</a>
+    `;
+    const parsedResults = parseDuckDuckGoHtml(sampleHtml, 5);
+    assert.equal(parsedResults.length, 1);
+    assert.equal(parsedResults[0].url, 'https://hono.dev/docs');
+
+    const ssrfScrape = await runRegisteredTool('web_scrape', { url: 'http://169.254.169.254/latest/meta-data/' });
+    assert.equal(ssrfScrape.ok, false);
+
+    // 2. Mid-loop create/edit/grep/command execution with confirmation hook
+    const tmpRel = '.codiz-tmp-agent-test.js';
+    const tmpAbs = resolveSafeWorkspacePath(tmpRel);
+    try {
+      const writeRes = await runRegisteredTool(
+        'write_file',
+        { path: tmpRel, content: 'console.log("step-one");\n', reason: 'Test file creation' },
+        { onConfirmAction: async () => true }
+      );
+      assert.equal(writeRes.ok, true);
+      assert.equal((writeRes.result as { status: string }).status, 'applied');
+
+      const editRes = await runRegisteredTool(
+        'edit_file',
+        { path: tmpRel, oldText: 'step-one', newText: 'step-two', reason: 'Test targeted edit' },
+        { onConfirmAction: async () => true }
+      );
+      assert.equal(editRes.ok, true);
+
+      const cmdRes = await runRegisteredTool(
+        'run_command',
+        { command: `node ${tmpRel}`, reason: 'Verify edited file output' },
+        { onConfirmAction: async () => true }
+      );
+      assert.equal(cmdRes.ok, true);
+      assert.equal((cmdRes.result as { exitCode: number; stdout: string }).exitCode, 0);
+      assert.ok((cmdRes.result as { stdout: string }).stdout.includes('step-two'));
+    } finally {
+      fs.rmSync(tmpAbs, { force: true });
+    }
+
+    // 3. Seed fine-tuning examples for CLI coding agent tools
+    const seeded = seedCliAgentTrainingExamples();
+    assert.ok(seeded.inserted >= 4);
+  });
 });

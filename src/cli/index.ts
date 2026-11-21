@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,15 +13,26 @@ import {
 import { closeDb } from '../server/db/sqlite.ts';
 import { probeInferenceBackends } from '../server/providers/llm/router.ts';
 import { runAgentTurn } from '../server/services/agent/orchestrator.ts';
+import { validateProposedShellCommand } from '../server/services/agent/tools.ts';
 import { evaluateCodeSnippet } from '../server/services/evaluator/runner.ts';
 import {
   indexWorkspaceRepository,
+  invalidateRepoIndexCache,
   resolveSafeWorkspacePath,
 } from '../server/services/repository/indexer.ts';
 import { searchKnowledge } from '../server/services/retrieval/knowledge.ts';
+import {
+  exportApprovedDatasetJsonl,
+  seedCliAgentTrainingExamples,
+} from '../server/services/teacher/factory.ts';
+import { webScrape, webSearch } from '../server/services/web/research.ts';
 import type { AgentMode } from '../server/types/domain.ts';
 import { c, renderMarkdownToTerminal, Spinner } from './ansi.ts';
-import { reviewPendingApprovals } from './approvals.ts';
+import {
+  type CliApprovalState,
+  confirmCliActionMidLoop,
+  reviewPendingApprovals,
+} from './approvals.ts';
 import {
   detectMachineProfile,
   ensureLocalRuntimeReady,
@@ -39,9 +50,17 @@ const VALID_MODES: AgentMode[] = [
   'review',
 ];
 
+function resolveCodizRepoRoot(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+}
+
 function bootstrapCliEnv(explicitWorkspace?: string): { repoRoot: string; dataDir: string } {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const repoRoot = path.resolve(__dirname, '..', '..');
+  const repoRoot = resolveCodizRepoRoot();
   const cwd = path.resolve(explicitWorkspace || process.cwd());
 
   const cwdEnv = path.join(cwd, '.env');
@@ -62,19 +81,21 @@ function bootstrapCliEnv(explicitWorkspace?: string): { repoRoot: string; dataDi
 
 function printHelp(): void {
   console.log(`
-${c.bold(c.emerald('Codiz CLI'))} — Low-resource agentic coding assistant (Self-Hosted Qwen + Muse Code TUI)
+${c.bold(c.emerald('Codiz CLI'))} — Fine-tuned local CLI coding agent (files · npm/shell · live web search & scrape)
 
 ${c.bold('Usage:')}
   codiz                     Launch interactive Muse-Code-style coding terminal (auto-starts local Qwen)
-  codiz "<prompt>"          Run a single local agentic task and exit
+  codiz "<prompt>"          Run a single local coding-agent task and exit
   codiz chat -p "<prompt>"  Run a local prompt directly without starting any web server
+  codiz finetune            Export QLoRA tool-calling dataset (files, npm, web) for local Qwen fine-tuning
   codiz doctor              Inspect CPU/RAM, Ollama status, and optimal local Qwen profile
-  codiz tune [base-tag]     Create CPU/HDD-tuned "codiz-local" Ollama model for this machine
+  codiz tune [base-tag]     Create CLI-agent-tuned "codiz-local" Ollama model for this machine
   codiz index               Index the current project and show file/symbol summary
   codiz serve               Start the optional Web Dashboard + Hono API + VS Code server
 
 ${c.bold('Options:')}
   -p, --prompt <text>       Prompt text for one-shot local execution
+  -y, --yes                 Auto-approve workspace file writes and commands for this session
   --mode <mode>             autonomous | debugging | chat | review | architecture | completion
   --model <tag>             Override Ollama/vLLM model tag for this session
   --provider <name>         auto | local-ollama | vllm | gemini
@@ -85,9 +106,15 @@ ${c.bold('Options:')}
   -h, --help                Show help
 
 ${c.bold('Interactive Slash Commands:')}
-  /mode <name>  /model [tag]  /read <file>  /search <query>  /eval <file>
-  /index        /approve      /doctor       /tune            /clear
-  /serve        /help         /exit
+  /search <query>           Live web search (DuckDuckGo)
+  /web <url>                Live web scrape & code extraction from any public docs URL
+  /run <command>            Execute a workspace shell command (e.g. npm test, npm install)
+  /read <file>              Pin a workspace file into conversation context
+  /eval <file>              Run static TypeScript/security diagnostics on a file
+  /docs <query>             Search offline Knowledge RAG cache
+  /yolo                     Toggle auto-approve for file writes & shell commands
+  /finetune                 Seed & export CLI coding-agent QLoRA JSONL training split
+  /mode <name>  /model [tag]  /index  /approve  /doctor  /tune  /clear  /serve  /exit
 `);
 }
 
@@ -102,6 +129,25 @@ function extractMentionedFiles(text: string, repoFiles: string[]): string[] {
   return found;
 }
 
+async function runFinetuneExport(repoRoot: string): Promise<void> {
+  const seeded = seedCliAgentTrainingExamples();
+  const dsVersion = `ds-cli-agent-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
+  const exported = await exportApprovedDatasetJsonl(dsVersion);
+  console.log('');
+  console.log(c.bold(c.emerald('Codiz Local Coding-Agent Fine-Tuning Dataset Ready')));
+  console.log(`  • CLI tool examples: ${seeded.inserted} new (${seeded.deduplicated} already present)`);
+  console.log(`  • Exported JSONL:    ${exported.trainCount} train / ${exported.valCount} val`);
+  console.log(`  • Train URI:         ${c.cyan(exported.trainUri)}`);
+  console.log(`  • Val URI:           ${c.cyan(exported.valUri)}`);
+  console.log(c.slate('  Next (on GPU / Colab / Cloud Run L4):'));
+  console.log(
+    c.white(`    python ${path.join(repoRoot, 'ml_services/training/train_lora.py')} --train "${exported.trainUri}" --val "${exported.valUri}"`)
+  );
+  console.log(c.slate('  Then convert/import your GGUF adapter locally via:'));
+  console.log(c.white('    codiz tune <your-finetuned-gguf-tag>'));
+  console.log('');
+}
+
 async function runSingleTurn(params: {
   prompt: string;
   conversationId?: string;
@@ -110,6 +156,7 @@ async function runSingleTurn(params: {
   compactMode: boolean;
   preferProvider: 'auto' | 'local-ollama' | 'vllm' | 'gemini';
   pinnedFiles: string[];
+  approvalState: CliApprovalState;
 }): Promise<{ conversationId: string }> {
   const snap = indexWorkspaceRepository();
   const mentioned = extractMentionedFiles(params.prompt, snap.files.map((f) => f.relativePath));
@@ -119,7 +166,7 @@ async function runSingleTurn(params: {
   let streamedDirect = false;
   let printedStreamHeader = false;
 
-  spinner.start(params.agentic ? 'Agent planning step 1/5' : 'Thinking');
+  spinner.start(params.agentic ? 'Agent planning step 1/8' : 'Thinking');
 
   try {
     const res = await runAgentTurn({
@@ -132,6 +179,16 @@ async function runSingleTurn(params: {
       preferProvider: params.preferProvider,
       useRepoContext: true,
       useKnowledgeRag: true,
+      onConfirmAction: async (req) => {
+        spinner.stop();
+        const ok = await confirmCliActionMidLoop(req, params.approvalState);
+        spinner.start(
+          req.kind === 'command'
+            ? `Executing \`${req.command}\``
+            : `Writing ${req.path}`
+        );
+        return ok;
+      },
       onStepStart: (step, maxSteps) => {
         spinner.update(
           params.agentic
@@ -224,6 +281,7 @@ async function runInteractiveSession(opts: {
   dataDir: string;
   initialMode: AgentMode;
   agentic: boolean;
+  autoYes: boolean;
   preferProvider: 'auto' | 'local-ollama' | 'vllm' | 'gemini';
 }): Promise<void> {
   const profile = detectMachineProfile();
@@ -236,20 +294,27 @@ async function runInteractiveSession(opts: {
   const preferProvider = opts.preferProvider;
   let conversationId: string | undefined;
   let pinnedFiles: string[] = [];
+  const approvalState: CliApprovalState = {
+    autoApproveWrites: opts.autoYes,
+    autoApproveCommands: opts.autoYes,
+  };
   const historyFile = path.join(opts.dataDir, 'cli-history.json');
 
   console.log('');
   console.log(
-    `${c.bold(c.emerald('CODIZ'))} ${c.slate('v1.0.0')}  ${c.slate('·')}  ${c.white(initialSnap.rootName)} ${c.slate(`(${initialSnap.totalFiles} files)`)}`
+    `${c.bold(c.emerald('CODIZ'))} ${c.slate('v1.0.0 CLI Agent')}  ${c.slate('·')}  ${c.white(initialSnap.rootName)} ${c.slate(`(${initialSnap.totalFiles} files)`)}`
   );
   console.log(
-    `  Backend:  ${probe.localOllamaReachable || probe.vllmReachable || probe.geminiConfigured ? c.cyan(probe.activeDefault) : c.amber('No model server online — run `codiz tune` or start Ollama')}`
+    `  Model:    ${probe.localOllamaReachable || probe.vllmReachable || probe.geminiConfigured ? c.cyan(probe.activeDefault) : c.amber('Local Ollama offline — install Ollama to run offline ($0/mo)')}`
   );
   console.log(
-    `  Hardware: ${c.slate(`${profile.cpuModel} · ${profile.totalRamGb}GB RAM · profile=${profile.tierName} (threads=${profile.recommendedThreads}, ctx=${profile.recommendedCtx})`)}`
+    `  Tools:    ${c.slate('files (read/write/edit/grep) · shell (npm/node/python/git) · live web_search & web_scrape')}`
   );
   console.log(
-    `  Tip:      ${c.slate('Type @file to attach code, /help for commands, Alt/Ctrl+J for multi-line')}`
+    `  Hardware: ${c.slate(`${profile.cpuModel} · ${profile.totalRamGb}GB RAM · ${profile.tierName} (threads=${profile.recommendedThreads}, ctx=${profile.recommendedCtx})`)}`
+  );
+  console.log(
+    `  Tip:      ${c.slate('@file attaches code · /search queries web · /web <url> scrapes · /yolo auto-approves')}`
   );
   console.log('');
 
@@ -261,7 +326,7 @@ async function runInteractiveSession(opts: {
         : activeRuntime.selfHostedModel || runtimeCfg.selfHostedModel;
 
     const input = await promptMuseTextArea({
-      mode: agentic ? mode : `${mode}:fast`,
+      mode: agentic ? (approvalState.autoApproveCommands ? `${mode}:auto` : mode) : `${mode}:fast`,
       modelLabel,
       workspaceName: initialSnap.rootName,
       historyFile,
@@ -295,6 +360,17 @@ async function runInteractiveSession(opts: {
         console.log(c.green('✓ Started fresh conversation & cleared pinned files.\n'));
         continue;
       }
+      if (cmd === '/yolo') {
+        const next = !(approvalState.autoApproveWrites && approvalState.autoApproveCommands);
+        approvalState.autoApproveWrites = next;
+        approvalState.autoApproveCommands = next;
+        console.log(
+          next
+            ? c.amber('⚡ Session auto-approve ON (file writes & safe shell commands run without prompt).\n')
+            : c.green('✓ Session auto-approve OFF (interactive [y/n/a] prompts active).\n')
+        );
+        continue;
+      }
       if (cmd === '/mode') {
         if (!arg) {
           console.log(`Current mode: ${c.cyan(mode)} (available: ${VALID_MODES.join(', ')})\n`);
@@ -323,6 +399,10 @@ async function runInteractiveSession(opts: {
       }
       if (cmd === '/tune') {
         await runTuneCommand(arg || undefined);
+        continue;
+      }
+      if (cmd === '/finetune') {
+        await runFinetuneExport(opts.repoRoot);
         continue;
       }
       if (cmd === '/index') {
@@ -357,11 +437,84 @@ async function runInteractiveSession(opts: {
       }
       if (cmd === '/search') {
         if (!arg) {
-          console.log(c.slate('Usage: /search <query>\n'));
+          console.log(c.slate('Usage: /search <web query>\n'));
+        } else {
+          const spinner = new Spinner();
+          spinner.start(`Searching web for "${arg}"`);
+          const res = await webSearch(arg, 5);
+          spinner.stop();
+          if (res.results.length === 0) {
+            console.log(c.amber(res.note || 'No live web results found.\n'));
+          } else {
+            res.results.forEach((r, idx) => {
+              console.log(`  ${c.cyan(`${idx + 1}.`)} ${c.bold(r.title)}`);
+              console.log(`     ${c.emerald(r.url)}`);
+              if (r.snippet) console.log(`     ${c.slate(r.snippet)}`);
+            });
+            console.log('');
+          }
+        }
+        continue;
+      }
+      if (cmd === '/web') {
+        if (!arg) {
+          console.log(c.slate('Usage: /web <https://url>\n'));
+        } else {
+          const spinner = new Spinner();
+          spinner.start(`Scraping ${arg}`);
+          try {
+            const page = await webScrape(arg, 3000);
+            spinner.stop();
+            console.log(c.bold(c.emerald(`\n${page.title}`)));
+            console.log(c.slate(`${page.url} (${page.charCount} chars)\n`));
+            console.log(page.excerpt.slice(0, 1400));
+            if (page.codeBlocks.length > 0) {
+              console.log(c.cyan(`\nExtracted ${page.codeBlocks.length} code block(s). First block:`));
+              console.log(c.slate(page.codeBlocks[0].slice(0, 600)));
+            }
+            console.log('');
+          } catch (err) {
+            spinner.stop();
+            console.log(c.red(`${err instanceof Error ? err.message : String(err)}\n`));
+          }
+        }
+        continue;
+      }
+      if (cmd === '/run') {
+        if (!arg) {
+          console.log(c.slate('Usage: /run <shell command>\n'));
+        } else {
+          try {
+            validateProposedShellCommand(arg);
+            const env = getEnv();
+            const ok = await confirmCliActionMidLoop(
+              { kind: 'command', command: arg, cwd: env.CODIZ_WORKSPACE_ROOT, reason: 'User /run command' },
+              approvalState
+            );
+            if (ok) {
+              const shellBin = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+              const shellArgs = process.platform === 'win32' ? ['/c', arg] : ['-c', arg];
+              spawnSync(shellBin, shellArgs, {
+                cwd: env.CODIZ_WORKSPACE_ROOT,
+                stdio: 'inherit',
+                timeout: 45_000,
+              });
+              invalidateRepoIndexCache();
+            }
+            console.log('');
+          } catch (err) {
+            console.log(c.red(`${err instanceof Error ? err.message : String(err)}\n`));
+          }
+        }
+        continue;
+      }
+      if (cmd === '/docs') {
+        if (!arg) {
+          console.log(c.slate('Usage: /docs <query>\n'));
         } else {
           const hits = searchKnowledge(arg, undefined, 4);
           if (hits.length === 0) {
-            console.log(c.slate('No matching knowledge docs found.\n'));
+            console.log(c.slate('No matching offline docs found.\n'));
           } else {
             hits.forEach((h) => {
               console.log(`  ${c.cyan(`[${h.collection}]`)} ${c.bold(h.title)}`);
@@ -415,6 +568,7 @@ async function runInteractiveSession(opts: {
       compactMode: profile.compactPromptDefault,
       preferProvider,
       pinnedFiles,
+      approvalState,
     });
     if (res.conversationId) {
       conversationId = res.conversationId;
@@ -427,6 +581,7 @@ async function main(): Promise<void> {
   let mode: AgentMode = 'autonomous';
   let agentic = true;
   let autoStart = true;
+  let autoYes = false;
   let modelOverride: string | undefined;
   let promptFlag: string | undefined;
   let preferProvider: 'auto' | 'local-ollama' | 'vllm' | 'gemini' = 'auto';
@@ -442,6 +597,10 @@ async function main(): Promise<void> {
     if (a === '-v' || a === '--version') {
       console.log('codiz v1.0.0');
       return;
+    }
+    if (a === '-y' || a === '--yes') {
+      autoYes = true;
+      continue;
     }
     if (a === '--no-agent') {
       agentic = false;
@@ -484,6 +643,10 @@ async function main(): Promise<void> {
   }
 
   const subcommand = positional[0]?.toLowerCase();
+  const approvalState: CliApprovalState = {
+    autoApproveWrites: autoYes,
+    autoApproveCommands: autoYes,
+  };
 
   try {
     if (subcommand === 'doctor') {
@@ -492,6 +655,10 @@ async function main(): Promise<void> {
     }
     if (subcommand === 'tune') {
       await runTuneCommand(positional[1]);
+      return;
+    }
+    if (subcommand === 'finetune') {
+      await runFinetuneExport(repoRoot);
       return;
     }
     if (subcommand === 'index') {
@@ -523,6 +690,7 @@ async function main(): Promise<void> {
           compactMode: profile.compactPromptDefault,
           preferProvider,
           pinnedFiles: [],
+          approvalState,
         });
         return;
       }
@@ -535,6 +703,7 @@ async function main(): Promise<void> {
         compactMode: profile.compactPromptDefault,
         preferProvider,
         pinnedFiles: [],
+        approvalState,
       });
       return;
     }
@@ -544,6 +713,7 @@ async function main(): Promise<void> {
       dataDir,
       initialMode: mode,
       agentic,
+      autoYes,
       preferProvider,
     });
   } finally {

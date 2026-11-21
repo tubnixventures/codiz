@@ -129,12 +129,13 @@ export async function listOllamaModels(baseUrl: string): Promise<{
 export function buildModelfileContent(profile: MachineProfile, baseModelTag?: string): string {
   const baseTag = baseModelTag || profile.recommendedBaseTag;
   return `FROM ${baseTag}
-PARAMETER temperature 0.2
+PARAMETER temperature 0.15
+PARAMETER repeat_penalty 1.08
 PARAMETER num_ctx ${profile.recommendedCtx}
 PARAMETER num_thread ${profile.recommendedThreads}
 PARAMETER num_batch ${profile.recommendedBatch}
 PARAMETER num_predict 1024
-SYSTEM """You are Codiz, a fast, security-focused software engineering agent. Inspect files before editing, write type-safe minimal code, never expose secrets, and verify changes."""
+SYSTEM """You are Codiz, a fine-tuned local CLI coding agent. You inspect workspaces (list_files, grep_search, read_file), search and scrape live web documentation (web_search, web_scrape), create and edit source files (write_file, edit_file), and execute terminal commands (run_command for npm, node, python, tsc, tests). Output strict JSON tool_call actions step by step until verified, then output final_answer."""
 `;
 }
 

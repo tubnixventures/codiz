@@ -5,12 +5,20 @@ import readline from 'node:readline/promises';
 import process from 'node:process';
 import { getEnv } from '../server/config/env.ts';
 import { getDb } from '../server/db/sqlite.ts';
-import { validateProposedShellCommand } from '../server/services/agent/tools.ts';
+import {
+  type ConfirmActionRequest,
+  validateProposedShellCommand,
+} from '../server/services/agent/tools.ts';
 import {
   invalidateRepoIndexCache,
   resolveSafeWorkspacePath,
 } from '../server/services/repository/indexer.ts';
 import { c, renderUnifiedDiff } from './ansi.ts';
+
+export interface CliApprovalState {
+  autoApproveWrites: boolean;
+  autoApproveCommands: boolean;
+}
 
 interface ApprovalRow {
   id: string;
@@ -21,8 +29,8 @@ interface ApprovalRow {
   status: string;
 }
 
-async function askYesNo(promptText: string): Promise<boolean> {
-  if (!process.stdin.isTTY) return false;
+async function askChoice(promptText: string): Promise<'yes' | 'no' | 'always'> {
+  if (!process.stdin.isTTY) return 'no';
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -30,10 +38,57 @@ async function askYesNo(promptText: string): Promise<boolean> {
   try {
     const answer = await rl.question(promptText);
     const normalized = answer.trim().toLowerCase();
-    return normalized === 'y' || normalized === 'yes';
+    if (normalized === 'a' || normalized === 'always') return 'always';
+    if (normalized === 'y' || normalized === 'yes') return 'yes';
+    return 'no';
   } finally {
     rl.close();
   }
+}
+
+async function askYesNo(promptText: string): Promise<boolean> {
+  const choice = await askChoice(promptText);
+  return choice === 'yes' || choice === 'always';
+}
+
+export async function confirmCliActionMidLoop(
+  req: ConfirmActionRequest,
+  state: CliApprovalState
+): Promise<boolean> {
+  if (req.kind === 'file_write') {
+    if (state.autoApproveWrites) {
+      console.log(c.slate(`  → Auto-applying write to ${req.path}`));
+      return true;
+    }
+    console.log('');
+    console.log(renderUnifiedDiff(req.path, req.oldContent, req.newContent, req.reason));
+    const choice = await askChoice(
+      `\n${c.bold(`Write ${c.cyan(req.path)}?`)} ${c.slate('[y]es / [n]o / [a]ll writes')} `
+    );
+    if (choice === 'always') {
+      state.autoApproveWrites = true;
+      return true;
+    }
+    return choice === 'yes';
+  }
+
+  if (state.autoApproveCommands) {
+    console.log(c.slate(`  → Auto-running: ${req.command}`));
+    return true;
+  }
+  console.log('');
+  console.log(c.slate('─'.repeat(58)));
+  console.log(`${c.bold('Execute Command:')} ${c.cyan(req.command)}`);
+  console.log(`${c.slate('Directory:')}       ${req.cwd}`);
+  console.log(`${c.slate('Reason:')}          ${req.reason}`);
+  const choice = await askChoice(
+    `${c.bold('Run this command locally?')} ${c.slate('[y]es / [n]o / [a]ll commands')} `
+  );
+  if (choice === 'always') {
+    state.autoApproveCommands = true;
+    return true;
+  }
+  return choice === 'yes';
 }
 
 export async function reviewPendingApprovals(specificIds?: string[]): Promise<number> {
